@@ -11,6 +11,7 @@ import { Privacy } from './pages/Privacy';
 interface PinResult {
   url: string;
   title: string;
+  author?: string;
   thumbnail?: string;
   videoUrl?: string;
   imageUrl?: string;
@@ -134,7 +135,12 @@ function Home() {
       const downloadUrl = item.type === 'video' ? item.videoUrl : item.imageUrl;
       if (downloadUrl) {
         const link = document.createElement('a');
-        link.href = `/api/download?url=${encodeURIComponent(downloadUrl)}`;
+        const queryParams = new URLSearchParams({
+          url: downloadUrl,
+          title: item.title,
+          author: item.author || ''
+        });
+        link.href = `/api/download?${queryParams.toString()}`;
         link.setAttribute('download', '');
         document.body.appendChild(link);
         link.click();
@@ -190,6 +196,7 @@ function Home() {
             <div className="space-y-4">
               <ResultCard
                 title={currentResult.title}
+                author={currentResult.author}
                 thumbnail={currentResult.thumbnail}
                 videoUrl={currentResult.videoUrl}
                 imageUrl={currentResult.imageUrl}

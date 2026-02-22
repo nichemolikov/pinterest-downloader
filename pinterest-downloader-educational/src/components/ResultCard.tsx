@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 
 interface ResultCardProps {
   title: string;
+  author?: string;
   thumbnail?: string;
   videoUrl?: string;
   imageUrl?: string;
@@ -12,7 +13,7 @@ interface ResultCardProps {
   style?: string;
 }
 
-export const ResultCard: React.FC<ResultCardProps> = ({ title, thumbnail, videoUrl, imageUrl, type, description, style }) => {
+export const ResultCard: React.FC<ResultCardProps> = ({ title, author, thumbnail, videoUrl, imageUrl, type, description, style }) => {
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedStyle, setCopiedStyle] = useState(false);
 
@@ -20,8 +21,12 @@ export const ResultCard: React.FC<ResultCardProps> = ({ title, thumbnail, videoU
 
   const handleDownload = () => {
     if (!mainUrl) return;
-    // Use our proxy endpoint to avoid CORS issues and force download
-    window.location.href = `/api/download?url=${encodeURIComponent(mainUrl)}`;
+    const queryParams = new URLSearchParams({
+      url: mainUrl,
+      title,
+      author: author || ''
+    });
+    window.location.href = `/api/download?${queryParams.toString()}`;
   };
 
   const copyToClipboard = async (text: string, type: 'caption' | 'style') => {
