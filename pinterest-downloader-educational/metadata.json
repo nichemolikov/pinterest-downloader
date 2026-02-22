@@ -1,0 +1,5 @@
+{
+  "name": "Pinterest Video Helper (Educational)",
+  "description": "An educational tool to demonstrate URL validation, metadata extraction, and media handling for public Pinterest videos.",
+  "requestFramePermissions": []
+}
