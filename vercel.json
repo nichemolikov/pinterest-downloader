@@ -1,0 +1,6 @@
+{
+    "buildCommand": "cd pinterest-downloader-educational && npm run build",
+    "outputDirectory": "pinterest-downloader-educational/dist",
+    "installCommand": "cd pinterest-downloader-educational && npm install",
+    "framework": "vite"
+}
