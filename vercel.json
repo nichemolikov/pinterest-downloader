@@ -1,16 +1,16 @@
 {
     "buildCommand": "cd pinterest-downloader-educational && npm run build",
     "outputDirectory": "pinterest-downloader-educational/dist",
-    "installCommand": "cd pinterest-downloader-educational && npm install",
+    "installCommand": "npm install && cd pinterest-downloader-educational && npm install",
     "framework": "vite",
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "pinterest-downloader-educational/api/index.ts"
+            "destination": "/api/index.ts"
         },
         {
             "source": "/(.*)",
-            "destination": "/pinterest-downloader-educational/dist/$1"
+            "destination": "/$1"
         }
     ]
 }

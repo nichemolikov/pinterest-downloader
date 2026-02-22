@@ -92,6 +92,7 @@ function extractVideoUrl(html: string): string | null {
     return foundUrl;
 }
 
+// Map the specific route
 app.post("/api/resolve", async (req, res) => {
     const { url } = req.body;
     if (!url || typeof url !== "string") return res.status(400).json({ error: "URL is required" });
@@ -118,7 +119,50 @@ app.post("/api/resolve", async (req, res) => {
     }
 });
 
+// Also handle the general path if Vercel doesn't strip the prefix
+app.post("/resolve", async (req, res) => {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") return res.status(400).json({ error: "URL is required" });
+    if (!validatePinterestUrl(url)) return res.status(400).json({ error: "Please provide a valid public Pinterest URL" });
+
+    try {
+        const html = await fetchHtml(url);
+        const metadata = extractMetadata(html);
+        const videoUrl = extractVideoUrl(html);
+
+        if (!videoUrl) {
+            return res.status(404).json({ error: "Could not find a public video at this URL." });
+        }
+
+        res.json({
+            title: metadata.title,
+            thumbnail: metadata.thumbnail,
+            videoUrl: videoUrl,
+            description: metadata.description,
+            style: metadata.style,
+        });
+    } catch (error) {
+        res.status(500).json({ error: "An error occurred while processing the request." });
+    }
+});
+
 app.get("/api/download", async (req, res) => {
+    const videoUrl = req.query.url as string;
+    if (!videoUrl) return res.status(400).send("Missing URL");
+
+    try {
+        const response = await fetch(videoUrl);
+        if (!response.ok) throw new Error("Failed to fetch video");
+        res.setHeader("Content-Type", "video/mp4");
+        res.setHeader("Content-Disposition", 'attachment; filename="pinterest-video.mp4"');
+        const arrayBuffer = await response.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+    } catch (error) {
+        res.status(500).send("Error downloading video");
+    }
+});
+
+app.get("/download", async (req, res) => {
     const videoUrl = req.query.url as string;
     if (!videoUrl) return res.status(400).send("Missing URL");
 

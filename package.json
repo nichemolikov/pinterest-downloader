@@ -1,0 +1,15 @@
+{
+    "name": "pinterest-downloader-root",
+    "private": true,
+    "version": "1.0.0",
+    "description": "Root package for Vercel deployment",
+    "dependencies": {
+        "cheerio": "^1.2.0",
+        "express": "^4.21.2"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/node": "^22.14.0",
+        "typescript": "~5.8.2"
+    }
+}
