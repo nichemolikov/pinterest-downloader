@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link2, Loader2, ListTree, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface UrlFormProps {
@@ -9,21 +9,59 @@ interface UrlFormProps {
 export const UrlForm: React.FC<UrlFormProps> = ({ onSubmit, isLoading }) => {
   const [url, setUrl] = useState('');
   const [isBulkMode, setIsBulkMode] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const pastedData = e.clipboardData.getData('text');
+    if (!pastedData) return;
+
+    // Process pasted data: ensure each link or the whole block ends with a newline
+    let processedData = pastedData;
+    if (!processedData.endsWith('\n')) {
+      processedData += '\n';
+    }
+
+    e.preventDefault();
+
+    if (!isBulkMode) {
+      setIsBulkMode(true);
+      const target = e.target as HTMLInputElement;
+      const start = target.selectionStart || 0;
+      const end = target.selectionEnd || 0;
+      const newValue = url.substring(0, start) + processedData + url.substring(end);
+      setUrl(newValue);
+
+      // The cursor will be handled by the useEffect after mode switch
+    } else {
+      const target = e.target as HTMLTextAreaElement;
+      const start = target.selectionStart || 0;
+      const end = target.selectionEnd || 0;
+      const newValue = url.substring(0, start) + processedData + url.substring(end);
+      setUrl(newValue);
+
+      const newCursorPos = start + processedData.length;
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newCursorPos;
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Focus the textarea and set cursor if we just switched to bulk mode via paste or toggle
+  useEffect(() => {
+    if (isBulkMode && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.selectionStart = textareaRef.current.selectionEnd = url.length;
+    }
+  }, [isBulkMode]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = url.trim();
     if (trimmed) {
-      if (isBulkMode) {
-        // Handle bulk separately if we want, but for now we'll just pass the first one
-        // or refine the onSubmit to handle arrays. 
-        // Let's keep it simple for now: if bulk, we can split and call onSubmit multiple times
-        // but App.tsx expects a single resolve. 
-        // Actually, let's just use the current resolve for single and maybe add a bulk resolve later.
-        onSubmit(trimmed);
-      } else {
-        onSubmit(trimmed);
-      }
+      onSubmit(trimmed);
     }
   };
 
@@ -51,8 +89,10 @@ export const UrlForm: React.FC<UrlFormProps> = ({ onSubmit, isLoading }) => {
 
           {isBulkMode ? (
             <textarea
+              ref={textareaRef}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
+              onPaste={handlePaste}
               placeholder="Paste multiple Pinterest links here (one per line)..."
               className="block w-full pl-11 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all shadow-sm text-slate-700 placeholder:text-slate-400 min-h-[120px] resize-none"
               required
@@ -62,6 +102,7 @@ export const UrlForm: React.FC<UrlFormProps> = ({ onSubmit, isLoading }) => {
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
+              onPaste={handlePaste}
               placeholder="Paste Pinterest link here..."
               className="block w-full pl-11 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all shadow-sm text-slate-700 placeholder:text-slate-400"
               required

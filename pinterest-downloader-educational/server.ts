@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import * as cheerio from "cheerio";
 
-// --- Backend Logic Helpers (simulating /lib) ---
+// --- Backend Logic Helpers ---
 
 function validatePinterestUrl(url: string): boolean {
   try {
@@ -34,32 +34,27 @@ function extractMetadata(html: string) {
   const $ = cheerio.load(html);
   const title = $('meta[property="og:title"]').attr("content") ||
     $('meta[name="twitter:title"]').attr("content") ||
-    $("title").text() || "Pinterest Video";
+    $("title").text() || "Pinterest Content";
   const thumbnail = $('meta[property="og:image"]').attr("content") ||
     $('meta[name="twitter:image"]').attr("content");
 
   const description = $('meta[property="og:description"]').attr("content") ||
     $('meta[name="twitter:description"]').attr("content") || "";
 
-  // Extract style/hashtags from description or title
+  const author = $('meta[name="author"]').attr("content") ||
+    $('meta[property="mrc.author_name"]').attr("content") ||
+    "Pinterest User";
+
   const hashtagRegex = /#[\w\u0080-\uffff]+/g;
   const descriptionHashtags = description.match(hashtagRegex) || [];
   const titleHashtags = title.match(hashtagRegex) || [];
   const style = Array.from(new Set([...descriptionHashtags, ...titleHashtags])).join(' ');
 
-  return { title, thumbnail, description, style };
+  return { title: title.trim(), thumbnail, description, style, author: author.trim() };
 }
 
 function extractVideoUrl(html: string): string | null {
   const $ = cheerio.load(html);
-
-  // 1. Try OpenGraph video tag
-  const videoUrl = $('meta[property="og:video:secure_url"]').attr("content") ||
-    $('meta[property="og:video"]').attr("content");
-
-  if (videoUrl) return videoUrl;
-
-  // 2. Search in __PWS_DATA__ (Modern Pinterest)
   const pwsData = $('#__PWS_DATA__').html();
   if (pwsData) {
     try {
@@ -78,29 +73,86 @@ function extractVideoUrl(html: string): string | null {
       };
       search(data);
       if (urls.length > 0) {
-        // Prefer 720p or similar high quality
-        return urls.find(u => u.includes('720p') || u.includes('V_720P')) || urls[0];
+        const qualityOrder = ['1080p', '720p', 'V_720P', 'v720p', 'V_H264_600', '480p'];
+        const sorted = urls.sort((a, b) => {
+          const getRank = (url: string) => {
+            const index = qualityOrder.findIndex(q => url.includes(q));
+            return index === -1 ? 99 : index;
+          };
+          return getRank(a) - getRank(b);
+        });
+        return sorted[0];
       }
-    } catch (e) {
-      console.error("Failed to parse __PWS_DATA__");
-    }
+    } catch (e) { }
   }
-
-  // 3. Fallback regex for other script tags
+  const videoUrl = $('meta[property="og:video:secure_url"]').attr("content") ||
+    $('meta[property="og:video"]').attr("content");
+  if (videoUrl) return videoUrl;
   const scripts = $("script");
-  let foundUrl: string | null = null;
+  let mp4Links: string[] = [];
   scripts.each((_, script) => {
     const content = $(script).html();
     if (content) {
-      const match = content.match(/https:\/\/(?:v1\.pinimg\.com\/videos\/|[^"']+\/)[^"']+\.mp4(?:\?[^"']+)?/g);
-      if (match) {
-        foundUrl = match.find(url => url.includes('720p') || url.includes('V_720P')) || match[0];
-        return false;
-      }
+      const matches = content.match(/https:\/\/(?:v1\.pinimg\.com\/videos\/|[^"']+\/)[^"']+\.mp4(?:\?[^"']+)?/g);
+      if (matches) mp4Links.push(...matches);
     }
   });
+  if (mp4Links.length > 0) {
+    const qualityOrder = ['1080p', '720p', 'V_720P', 'v720p', 'V_H264_600', '480p'];
+    return mp4Links.sort((a, b) => {
+      const getRank = (url: string) => {
+        const index = qualityOrder.findIndex(q => url.includes(q));
+        return index === -1 ? 99 : index;
+      };
+      return getRank(a) - getRank(b);
+    })[0];
+  }
+  return null;
+}
 
-  return foundUrl;
+function extractImageUrl(html: string): string | null {
+  const $ = cheerio.load(html);
+  let imageUrl = $('meta[property="og:image"]').attr("content") ||
+    $('meta[name="twitter:image"]').attr("content");
+  if (imageUrl) {
+    const upgraded = imageUrl.replace(/\/\d+x\//, '/originals/');
+    const pwsData = $('#__PWS_DATA__').html();
+    if (pwsData) {
+      try {
+        const data = JSON.parse(pwsData);
+        let foundOriginal = "";
+        const search = (obj: any) => {
+          if (foundOriginal) return;
+          if (!obj || typeof obj !== 'object') return;
+          for (const key in obj) {
+            if (key === 'url' && typeof obj[key] === 'string' && obj[key].includes('/originals/')) {
+              foundOriginal = obj[key];
+              return;
+            }
+            search(obj[key]);
+          }
+        };
+        search(data);
+        if (foundOriginal) return foundOriginal;
+      } catch (e) { }
+    }
+    return upgraded;
+  }
+  return null;
+}
+
+function generateRandomName(title?: string, author?: string): string {
+  const words = ["creative", "inspiration", "aesthetic", "vibe", "trend", "design", "art", "media", "content", "classic"];
+  const randomWord = words[Math.floor(Math.random() * words.length)];
+  const randomId = Math.random().toString(36).substring(2, 7);
+
+  let base = "";
+  if (author && author !== "Pinterest User") base += `${author}_`;
+  if (title && title !== "Pinterest Video" && title !== "Pinterest Content") {
+    base += `${title.substring(0, 20).replace(/[^a-z0-0]/gi, '_')}_`;
+  }
+
+  return `${base}${randomWord}_${randomId}`.replace(/__+/g, '_').toLowerCase();
 }
 
 // --- Server Setup ---
@@ -114,55 +166,48 @@ async function startServer() {
   // API Route: Resolve Pinterest URL
   app.post("/api/resolve", async (req, res) => {
     const { url } = req.body;
-
-    if (!url || typeof url !== "string") {
-      return res.status(400).json({ error: "URL is required" });
-    }
-
-    if (!validatePinterestUrl(url)) {
-      return res.status(400).json({ error: "Please provide a valid public Pinterest URL" });
-    }
-
+    if (!url || typeof url !== "string") return res.status(400).json({ error: "URL is required" });
+    if (!validatePinterestUrl(url)) return res.status(400).json({ error: "Please provide a valid public Pinterest URL" });
     try {
       const html = await fetchHtml(url);
       const metadata = extractMetadata(html);
       const videoUrl = extractVideoUrl(html);
-
-      if (!videoUrl) {
-        return res.status(404).json({
-          error: "Could not find a public video at this URL. It might be a static image or a private pin."
-        });
-      }
-
+      const imageUrl = extractImageUrl(html);
+      if (!videoUrl && !imageUrl) return res.status(404).json({ error: "Could not find a public video or image at this URL." });
       res.json({
         title: metadata.title,
+        author: metadata.author,
         thumbnail: metadata.thumbnail,
         videoUrl: videoUrl,
+        imageUrl: imageUrl,
+        type: videoUrl ? 'video' : 'image',
         description: metadata.description,
         style: metadata.style,
       });
     } catch (error) {
       console.error("Error resolving URL:", error);
-      res.status(500).json({ error: "An error occurred while processing the request. Please try again later." });
+      res.status(500).json({ error: "An error occurred while processing the request." });
     }
   });
 
-  // Proxy/Stream Video (Optional but helpful for cross-origin issues)
   app.get("/api/download", async (req, res) => {
-    const videoUrl = req.query.url as string;
-    if (!videoUrl) return res.status(400).send("Missing URL");
-
+    const downloadUrl = req.query.url as string;
+    const title = req.query.title as string;
+    const author = req.query.author as string;
+    if (!downloadUrl) return res.status(400).send("Missing URL");
     try {
-      const response = await fetch(videoUrl);
-      if (!response.ok) throw new Error("Failed to fetch video");
-
-      res.setHeader("Content-Type", "video/mp4");
-      res.setHeader("Content-Disposition", 'attachment; filename="pinterest-video.mp4"');
-
+      const response = await fetch(downloadUrl);
+      if (!response.ok) throw new Error("Failed to fetch media");
+      const contentType = response.headers.get("content-type") || "application/octet-stream";
+      const isVideo = contentType.includes("video");
+      const extension = isVideo ? "mp4" : "jpg";
+      const filename = generateRandomName(title, author);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}.${extension}"`);
       const arrayBuffer = await response.arrayBuffer();
       res.send(Buffer.from(arrayBuffer));
     } catch (error) {
-      res.status(500).send("Error downloading video");
+      res.status(500).send("Error downloading media");
     }
   });
 

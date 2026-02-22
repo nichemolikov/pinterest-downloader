@@ -134,18 +134,40 @@ function Home() {
     for (const item of collection) {
       const downloadUrl = item.type === 'video' ? item.videoUrl : item.imageUrl;
       if (downloadUrl) {
-        const link = document.createElement('a');
-        const queryParams = new URLSearchParams({
-          url: downloadUrl,
-          title: item.title,
-          author: item.author || ''
-        });
-        link.href = `/api/download?${queryParams.toString()}`;
-        link.setAttribute('download', '');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        await new Promise(r => setTimeout(r, 1000));
+        try {
+          const queryParams = new URLSearchParams({
+            url: downloadUrl,
+            title: item.title,
+            author: item.author || ''
+          });
+
+          const response = await fetch(`/api/download?${queryParams.toString()}`);
+          if (!response.ok) throw new Error("Failed to download item");
+
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+
+          // Try to get filename from server headers
+          const disposition = response.headers.get('Content-Disposition');
+          let filename = `pinterest-${item.type}-${Date.now()}.${item.type === 'video' ? 'mp4' : 'jpg'}`;
+          if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename="(.+)"/);
+            if (match && match[1]) filename = match[1];
+          }
+
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+
+          // Small delay between downloads to prevent overwhelming the browser
+          await new Promise(r => setTimeout(r, 800));
+        } catch (err) {
+          console.error("Batch download failed for:", item.title, err);
+        }
       }
     }
   };
