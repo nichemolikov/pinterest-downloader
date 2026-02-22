@@ -5,18 +5,23 @@ import { motion } from 'motion/react';
 interface ResultCardProps {
   title: string;
   thumbnail?: string;
-  videoUrl: string;
+  videoUrl?: string;
+  imageUrl?: string;
+  type: 'video' | 'image';
   description?: string;
   style?: string;
 }
 
-export const ResultCard: React.FC<ResultCardProps> = ({ title, thumbnail, videoUrl, description, style }) => {
+export const ResultCard: React.FC<ResultCardProps> = ({ title, thumbnail, videoUrl, imageUrl, type, description, style }) => {
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedStyle, setCopiedStyle] = useState(false);
 
+  const mainUrl = type === 'video' ? videoUrl : imageUrl;
+
   const handleDownload = () => {
+    if (!mainUrl) return;
     // Use our proxy endpoint to avoid CORS issues and force download
-    window.location.href = `/api/download?url=${encodeURIComponent(videoUrl)}`;
+    window.location.href = `/api/download?url=${encodeURIComponent(mainUrl)}`;
   };
 
   const copyToClipboard = async (text: string, type: 'caption' | 'style') => {
@@ -102,10 +107,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ title, thumbnail, videoU
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
             >
               <Download className="h-4 w-4" />
-              Download MP4
+              Download {type === 'video' ? 'MP4' : 'JPG'}
             </button>
             <a
-              href={videoUrl}
+              href={mainUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 px-4 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"

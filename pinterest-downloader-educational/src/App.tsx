@@ -8,10 +8,12 @@ import { Disclaimer } from './components/Disclaimer';
 import { Terms } from './pages/Terms';
 import { Privacy } from './pages/Privacy';
 
-interface VideoResult {
+interface PinResult {
   title: string;
   thumbnail?: string;
-  videoUrl: string;
+  videoUrl?: string;
+  imageUrl?: string;
+  type: 'video' | 'image';
   description?: string;
   style?: string;
 }
@@ -19,7 +21,7 @@ interface VideoResult {
 function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<VideoResult | null>(null);
+  const [result, setResult] = useState<PinResult | null>(null);
 
   const handleResolve = async (url: string) => {
     setIsLoading(true);
@@ -56,7 +58,7 @@ function Home() {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-6xl font-bold text-slate-900 tracking-tight mb-4"
           >
-            Pinterest Video Helper
+            Pinterest Media Helper
             <span className="block text-lg md:text-xl font-medium text-slate-500 mt-2">
               (Educational Use Only)
             </span>
@@ -68,7 +70,7 @@ function Home() {
             className="text-slate-600 text-lg max-w-2xl mx-auto"
           >
             A school project demonstrating how to safely extract public media metadata.
-            Paste a public Pinterest video link below to get started.
+            Paste a public Pinterest link below to get started.
           </motion.p>
         </div>
 
@@ -94,6 +96,8 @@ function Home() {
               title={result.title}
               thumbnail={result.thumbnail}
               videoUrl={result.videoUrl}
+              imageUrl={result.imageUrl}
+              type={result.type}
               description={result.description}
               style={result.style}
             />
