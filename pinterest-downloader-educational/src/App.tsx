@@ -12,6 +12,8 @@ interface VideoResult {
   title: string;
   thumbnail?: string;
   videoUrl: string;
+  description?: string;
+  style?: string;
 }
 
 function Home() {
@@ -49,7 +51,7 @@ function Home() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <main className="flex-grow container mx-auto px-6 py-12 md:py-24">
         <div className="max-w-4xl mx-auto text-center mb-12">
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-6xl font-bold text-slate-900 tracking-tight mb-4"
@@ -59,13 +61,13 @@ function Home() {
               (Educational Use Only)
             </span>
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
             className="text-slate-600 text-lg max-w-2xl mx-auto"
           >
-            A school project demonstrating how to safely extract public media metadata. 
+            A school project demonstrating how to safely extract public media metadata.
             Paste a public Pinterest video link below to get started.
           </motion.p>
         </div>
@@ -88,10 +90,12 @@ function Home() {
           )}
 
           {result && (
-            <ResultCard 
-              title={result.title} 
-              thumbnail={result.thumbnail} 
-              videoUrl={result.videoUrl} 
+            <ResultCard
+              title={result.title}
+              thumbnail={result.thumbnail}
+              videoUrl={result.videoUrl}
+              description={result.description}
+              style={result.style}
             />
           )}
         </AnimatePresence>
@@ -109,9 +113,9 @@ function Home() {
           <div className="flex items-center gap-6 text-sm font-medium text-slate-600">
             <Link to="/terms" className="hover:text-emerald-600 transition-colors">Terms</Link>
             <Link to="/privacy" className="hover:text-emerald-600 transition-colors">Privacy</Link>
-            <a 
-              href="https://github.com" 
-              target="_blank" 
+            <a
+              href="https://github.com"
+              target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-slate-900 transition-colors"
             >

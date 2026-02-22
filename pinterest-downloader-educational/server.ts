@@ -37,7 +37,17 @@ function extractMetadata(html: string) {
     $("title").text() || "Pinterest Video";
   const thumbnail = $('meta[property="og:image"]').attr("content") ||
     $('meta[name="twitter:image"]').attr("content");
-  return { title, thumbnail };
+
+  const description = $('meta[property="og:description"]').attr("content") ||
+    $('meta[name="twitter:description"]').attr("content") || "";
+
+  // Extract style/hashtags from description or title
+  const hashtagRegex = /#[\w\u0080-\uffff]+/g;
+  const descriptionHashtags = description.match(hashtagRegex) || [];
+  const titleHashtags = title.match(hashtagRegex) || [];
+  const style = Array.from(new Set([...descriptionHashtags, ...titleHashtags])).join(' ');
+
+  return { title, thumbnail, description, style };
 }
 
 function extractVideoUrl(html: string): string | null {
@@ -128,6 +138,8 @@ async function startServer() {
         title: metadata.title,
         thumbnail: metadata.thumbnail,
         videoUrl: videoUrl,
+        description: metadata.description,
+        style: metadata.style,
       });
     } catch (error) {
       console.error("Error resolving URL:", error);
